@@ -11,7 +11,7 @@
 <body>
   <header class="app-header">
     <h1>🎭 剧场排练走位工具</h1>
-    <p class="subtitle">8 × 6 舞台网格 · 逐拍推演 · 碰撞 / 互换冲突检测 · 排练场记报告 · 本地保存</p>
+    <p class="subtitle">8 × 6 舞台网格 · 逐拍推演 · 碰撞 / 互换冲突检测 · 排练场记报告 · 报告对比 · 本地保存</p>
   </header>
 
   <main class="layout">
@@ -77,9 +77,14 @@
       <section class="panel" aria-label="排练场记报告">
         <div class="panel-header">
           <h2>📝 场记报告</h2>
-          <button type="button" id="newReportBtn" class="btn btn-primary btn-sm">＋ 生成报告</button>
+          <div class="toolbar-group">
+            <button type="button" id="newCompareBtn" class="btn btn-sm" title="至少需要两份已保存的报告才能对比">⇄ 报告对比</button>
+            <button type="button" id="newReportBtn" class="btn btn-primary btn-sm">＋ 生成报告</button>
+          </div>
         </div>
         <ul id="reportList" class="report-list"></ul>
+        <h3 class="compare-list-title">报告对比</h3>
+        <ul id="compareList" class="report-list compare-list"></ul>
       </section>
     </aside>
   </main>
@@ -151,6 +156,40 @@
     </div>
   </div>
 
+  <!-- 报告对比：选择两份只读快照 -->
+  <div id="compareModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="报告对比">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>⇄ 报告对比</h2>
+        <button type="button" class="row-btn" id="cmpCloseX" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <label class="rp-field">
+          <span class="rp-label">对比名称</span>
+          <input type="text" id="cmpTitle" class="rp-input" maxlength="80" placeholder="留空则自动命名：报告对比：A → B">
+        </label>
+        <div class="rp-field">
+          <span class="rp-label">选择两份已保存的报告</span>
+          <div class="cmp-select-row">
+            <select id="cmpA" class="rp-select" aria-label="A 基准报告"></select>
+            <button type="button" class="btn btn-sm" id="cmpSwap" title="交换 A / B 两侧" aria-label="交换两侧报告">⇄</button>
+            <select id="cmpB" class="rp-select" aria-label="B 对照报告"></select>
+          </div>
+        </div>
+        <div id="cmpPreview" class="cmp-preview"></div>
+        <p class="rp-note">
+          对比按两份报告的<strong>共同演员</strong>与<strong>共同拍次</strong>对齐，逐拍显示坐标与动作差异，
+          并汇总同格 🔴 / 互换 🔁 / 越界 ⛔ 三类冲突的<strong>新增、消除与保持</strong>。
+          拍次或演员不重叠时只会保存明确提示，<strong>不会生成可能误导的差异结果</strong>。对比结果随本地存档保留。
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" id="cmpCancel">取消</button>
+        <button type="button" class="btn btn-primary" id="cmpSubmit">生成对比</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 查看只读报告 -->
   <div id="viewerOverlay" class="viewer-overlay hidden" role="dialog" aria-modal="true" aria-label="排练场记报告（只读）">
     <div class="viewer-toolbar no-print">
@@ -177,6 +216,43 @@
         <h2 class="sheet-section-title">冲突汇总</h2>
         <p class="sheet-sub-hint">点击任意冲突条目可关闭报告并跳回走位编辑器中的对应拍次。</p>
         <div id="sheetConflicts" class="sheet-conflicts"></div>
+      </section>
+    </article>
+  </div>
+
+  <!-- 查看报告对比 -->
+  <div id="cmpViewerOverlay" class="viewer-overlay hidden" role="dialog" aria-modal="true" aria-label="报告对比（只读）">
+    <div class="viewer-toolbar no-print">
+      <span class="vt-title">⇄ 报告对比（只读差异）</span>
+      <span class="vt-spacer"></span>
+      <button type="button" id="cmpViewerPrint" class="btn btn-sm">🖨 打印</button>
+      <button type="button" id="cmpViewerDownload" class="btn btn-sm">⬇ 下载 JSON</button>
+      <button type="button" id="cmpViewerClose" class="btn btn-sm btn-danger">✕ 关闭</button>
+    </div>
+    <article class="report-sheet compare-sheet">
+      <header class="sheet-header">
+        <h1 id="cmpSheetHead"></h1>
+        <p id="cmpSheetMeta" class="sheet-meta"></p>
+        <p id="cmpSheetFrozenNote" class="sheet-frozen-note"></p>
+        <div id="cmpSheetDirection" class="cmp-direction"></div>
+        <div id="cmpSummary" class="sheet-summary"></div>
+        <div id="cmpNotices" class="cmp-notices"></div>
+      </header>
+
+      <section>
+        <h2 class="sheet-section-title">冲突变化汇总</h2>
+        <p class="sheet-sub-hint">
+          <b class="cmp-add">＋ 新增</b>：仅 B（对照）存在；
+          <b class="cmp-rm">－ 消除</b>：仅 A（基准）存在；
+          <b class="cmp-keep">＝ 保持</b>：两份报告均存在。按共同拍次与共同演员口径统计。点击条目可跳回编辑器对应拍次。
+        </p>
+        <div id="cmpChanges" class="sheet-conflicts cmp-changes"></div>
+      </section>
+
+      <section>
+        <h2 class="sheet-section-title">逐拍走位差异</h2>
+        <p class="sheet-sub-hint">按共同演员与共同拍次对齐；高亮格表示 A → B 之间坐标或动作发生变化。每拍可跳回编辑器。</p>
+        <div id="cmpBeats"></div>
       </section>
     </article>
   </div>

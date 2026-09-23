@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/smoke.mjs"
+    "test": "node test/smoke.mjs && node test/dom-smoke.cjs && DOM_SMOKE_MODE=no-overlap node test/dom-smoke.cjs"
   },
   "engines": {
     "node": ">=18"

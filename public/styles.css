@@ -788,17 +788,196 @@ td.move-cell.flash { animation: cellflash 1s ease; }
 .sc-jump { flex: none; color: #2b62c8; font-size: 0.72rem; }
 .sheet-empty { color: #2e7d43; font-size: 0.82rem; }
 
-/* ---------- 打印样式：只打印报告纸张 ---------- */
+/* ============================================================
+   报告对比
+   ============================================================ */
+
+/* ---------- 右侧对比列表 ---------- */
+.compare-list-title {
+  margin: 12px 0 6px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.compare-list { max-height: 180px; }
+.compare-row .rr-meta.cmp-meta { color: var(--text-dim); }
+.report-open.src-missing .rr-title::after {
+  content: "（源报告已删除）";
+  color: var(--blocked);
+  font-size: 0.68rem;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+/* ---------- 对比选择弹窗 ---------- */
+.cmp-select-row { display: flex; align-items: stretch; gap: 8px; }
+.cmp-select-row .rp-select { flex: 1; min-width: 0; }
+.cmp-select-row .btn { flex: none; }
+
+.cmp-preview {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  margin-bottom: 12px;
+  font-size: 0.78rem;
+}
+.cmp-preview p { margin: 3px 0; }
+.cmp-pv-ok b { color: var(--ok); }
+.cmp-pv-stats b { font-size: 0.88rem; }
+.cmp-pv-warn {
+  color: #f0c986;
+  background: rgba(232, 176, 75, 0.1);
+  border: 1px solid rgba(232, 176, 75, 0.45);
+  border-radius: 6px;
+  padding: 7px 10px !important;
+}
+.cmp-pv-note { color: var(--text-dim); font-size: 0.74rem; }
+.cmp-pv-notes { margin: 6px 0 0; padding-left: 18px; color: var(--text-dim); }
+.cmp-pv-notes li { margin: 2px 0; }
+.cmp-add { color: #3ecf8e; }
+.cmp-rm { color: #ff8b8e; }
+.cmp-keep { color: #9aa0b5; }
+
+/* ---------- 对比查看器（纸张内） ---------- */
+.compare-sheet { max-width: 940px; }
+.cmp-direction {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 0.82rem;
+}
+.cmp-side-tag {
+  border-radius: 4px;
+  padding: 1px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.cmp-side-tag.side-a { background: #e7edfb; color: #1f4b99; border: 1px solid #9db8e8; }
+.cmp-side-tag.side-b { background: #e3f6ec; color: #1f6b41; border: 1px solid #93d8b1; }
+.cmp-arrow { font-weight: 700; color: #555; }
+.cmp-side-title { font-weight: 600; }
+
+.cmp-notices { margin-top: 10px; font-size: 0.76rem; }
+.cmp-notice-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #7a5200;
+}
+.cmp-notice-list li { margin: 2px 0; }
+.cmp-notice-ok { margin: 0; color: #2e7d43; }
+.cmp-warn-box {
+  margin: 0 0 10px;
+  color: #8a5a00;
+  background: #fdf3d8;
+  border: 1px solid #e3c574;
+  border-radius: 6px;
+  padding: 10px 13px;
+  font-size: 0.84rem;
+  line-height: 1.7;
+}
+
+.ss-item.cmp-add b { color: #1f8a52; }
+.ss-item.cmp-rm b { color: #c4363c; }
+.ss-item.cmp-keep b { color: #666; }
+.ss-detail-hint { font-size: 0.68rem; color: #999; font-weight: 400; }
+
+/* 冲突变化条目 */
+.cmp-change {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  border: 1px solid #c9c9c9;
+  border-left-width: 5px;
+  border-radius: 5px;
+  background: #fafafa;
+  color: #1a1a1a;
+  padding: 6px 11px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.cmp-change:hover { background: #eef3fb; border-color: #6ea8fe; }
+.cmp-change.chg-added { border-left-color: #1f8a52; }
+.cmp-change.chg-removed { border-left-color: #c4363c; text-decoration: none; }
+.cmp-change.chg-kept { border-left-color: #8a8f9c; }
+.chg-sign {
+  flex: none;
+  width: 20px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+.chg-added .chg-sign { color: #1f8a52; }
+.chg-removed .chg-sign { color: #c4363c; }
+.chg-kept .chg-sign { color: #777; }
+.chg-tag {
+  flex: none;
+  font-size: 0.68rem;
+  border-radius: 4px;
+  padding: 1px 6px;
+  background: #ececec;
+  color: #444;
+}
+.chg-added .chg-tag { background: #d9f2e4; color: #1f6b41; }
+.chg-removed .chg-tag { background: #f8d7da; color: #842029; }
+.chg-texts { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.chg-text-a, .chg-text-b { min-width: 0; }
+.chg-text-b { color: #555; font-size: 0.74rem; }
+.chg-removed .chg-text-a { color: #842029; }
+.chg-added .chg-text-b { color: #1f6b41; }
+.chg-na { color: #999; font-style: italic; }
+
+/* 逐拍对比表 */
+.cmp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.cmp-table th, .cmp-table td {
+  border: 1px solid #c9c9c9;
+  padding: 5px 9px;
+  text-align: center;
+}
+.cmp-table th { background: #f0f0f0; font-weight: 600; }
+.cmp-table td.cell-actor { text-align: left; }
+.cmp-table tr.row-diff { background: #f4f8ff; }
+.cmp-table td.diff {
+  background: #fff2cc;
+  font-weight: 700;
+  color: #7a5200;
+}
+.cmp-to { color: #999; margin: 0 7px; }
+.cmp-move-cell.diff .mv-glyph { color: #7a5200; }
+.cmp-beat-jump { margin-left: auto; font-size: 0.7rem; }
+
+/* ---------- 打印样式：报告 / 对比通用 ---------- */
 @media print {
-  /* 隐藏除报告覆盖层之外的一切 */
+  /* 隐藏除纸张覆盖层之外的一切 */
   body.printing-report .app-header,
   body.printing-report .layout,
   body.printing-report .table-panel,
   body.printing-report #toast,
-  body.printing-report #reportModal { display: none !important; }
+  body.printing-report #reportModal,
+  body.printing-report #compareModal { display: none !important; }
 
   body.printing-report #viewerOverlay,
-  body.printing-report #viewerOverlay.hidden {
+  body.printing-report #viewerOverlay.hidden,
+  body.printing-report #cmpViewerOverlay,
+  body.printing-report #cmpViewerOverlay.hidden {
+    display: none !important;
+  }
+  /* 仅打印当前处于打印模式的那一个纸张覆盖层 */
+  body.print-mode-report #viewerOverlay,
+  body.print-mode-compare #cmpViewerOverlay {
     display: block !important;
     position: static;
     overflow: visible;
@@ -814,8 +993,9 @@ td.move-cell.flash { animation: cellflash 1s ease; }
     border-radius: 0;
   }
   .sheet-beat { break-inside: avoid; }
-  .sheet-conflict { cursor: default; }
+  .sheet-conflict, .cmp-change { cursor: default; }
   .sc-jump { color: #555; }
+  .cmp-change { cursor: default; }
   @page { margin: 14mm; }
 }
 
