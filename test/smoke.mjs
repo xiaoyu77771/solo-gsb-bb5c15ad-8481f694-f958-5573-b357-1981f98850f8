@@ -1,7 +1,10 @@
 // 零依赖冒烟测试：直接验证核心推演逻辑
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { simulate, normalizeState, buildReport, normalizeReport, DIRS, cellKey } = require('../public/app.js');
+const {
+  simulate, normalizeState, buildReport, normalizeReport,
+  buildComparison, normalizeComparison, DIRS, cellKey
+} = require('../public/app.js');
 
 let passed = 0;
 let failed = 0;
@@ -275,6 +278,276 @@ console.log('12) normalizeReport 丢弃坏数据');
   const keptRow = fixed.beats[0].rows.find((x) => x.actorId === 'a');
   assert(keptRow.coord === null, '坏坐标归零为 null');
   assert(!fixed.beats.some((b) => b.rows.some((r) => r.actorId === 'ghost')), '未知演员行被丢弃');
+}
+
+console.log('13) buildComparison：共同演员 / 拍次对齐与逐拍坐标、动作差异');
+{
+  // 两位共同演员：a 在第 2 拍坐标变化；b 第 1 拍坐标相同但动作不同（B 侧越界被拦截，原地）
+  const sA = {
+    beats: 3,
+    actors: [
+      { id: 'a', name: '阿甲', start: { c: 3, r: 1 }, moves: { '1': 'R', '2': 'S', '3': 'S' } },
+      { id: 'b', name: '阿乙', start: { c: 1, r: 1 }, moves: { '1': 'S', '2': 'S', '3': 'S' } },
+      { id: 'd', name: '阿丁', start: { c: 5, r: 5 }, moves: { '1': 'S' } }
+    ]
+  };
+  const sB = {
+    beats: 3,
+    actors: [
+      { id: 'a', name: '阿甲', start: { c: 3, r: 1 }, moves: { '1': 'R', '2': 'U', '3': 'S' } },
+      { id: 'b', name: '阿乙', start: { c: 1, r: 1 }, moves: { '1': 'D', '2': 'S', '3': 'S' } },
+      { id: 'e', name: '阿戊', start: { c: 6, r: 6 }, moves: { '1': 'S' } }
+    ]
+  };
+  const rA = buildReport({ state: sA, title: '甲版' });
+  const rB = buildReport({ state: sB, title: '乙版' });
+  const cmp = buildComparison({ a: rA, b: rB, title: '甲乙对比' });
+
+  assert(cmp.app === 'stage-blocking-compare' && cmp.version === 1, '对比带应用标识与版本号');
+  assert(cmp.title === '甲乙对比', '对比标题被采用');
+  assert(cmp.comparable === true && cmp.reason === null, '有共同演员与拍次：可比');
+  assert(cmp.commonActorIds.length === 2, '共同演员 2 位（d、e 各自独有）');
+  assert(cmp.aOnlyActors.length === 1 && cmp.aOnlyActors[0].id === 'd', 'A 侧独有：阿丁');
+  assert(cmp.bOnlyActors.length === 1 && cmp.bOnlyActors[0].id === 'e', 'B 侧独有：阿戊');
+  assert(cmp.commonBeats.length === 4, '共同拍次为 0..3 共 4 个');
+  assert(cmp.overlap.fromBeat === 0 && cmp.overlap.toBeat === 3, '重叠范围 0—3');
+
+  // 逐拍差异
+  assert(cmp.diffRowCount === 3, '共 3 行走位差异（b 第 1 拍动作；a 第 2 拍坐标+动作；a 第 3 拍坐标）');
+  const b1 = cmp.beats.find((x) => x.beat === 1);
+  const rowA1 = b1.rows.find((x) => x.actorId === 'a');
+  assert(rowA1.coordA === '4-1' && rowA1.coordB === '4-1' && rowA1.coordChanged === false,
+    'a 第 1 拍坐标一致 (4-1)');
+  assert(rowA1.moveA === 'R' && rowA1.moveB === 'R' && rowA1.changed === false, 'a 第 1 拍动作一致 R');
+  const b2 = cmp.beats.find((x) => x.beat === 2);
+  const rowA2 = b2.rows.find((x) => x.actorId === 'a');
+  assert(rowA2.coordA === '4-1' && rowA2.coordB === '4-2', 'a 第 2 拍坐标 4-1 → 4-2');
+  assert(rowA2.coordChanged === true && rowA2.moveChanged === true, '坐标与动作都标记为变化');
+  assert(rowA2.moveA === 'S' && rowA2.moveB === 'U', '动作 原地 → 上');
+  const rowB1 = b1.rows.find((x) => x.actorId === 'b');
+  assert(rowB1.coordA === '1-1' && rowB1.coordB === '1-1', 'b 第 1 拍：越界拦截后坐标相同 (1-1)');
+  assert(rowB1.moveA === 'S' && rowB1.moveB === 'D', 'b 第 1 拍动作 原地 → 下（下被拦截）');
+  assert(rowB1.coordChanged === false && rowB1.moveChanged === true && rowB1.changed === true,
+    '坐标不变但动作不同，仍计为差异行');
+  const b0 = cmp.beats.find((x) => x.beat === 0);
+  assert(b0.changedCount === 0, '起点拍无差异');
+}
+
+console.log('14) buildComparison：冲突 新增 / 消除 / 保持');
+{
+  // A：a,b 第 1 拍同格于 3-2（相向），且保持到第 2 拍；d 第 1 拍越界
+  // B：a,b 第 1 拍仍同格于 3-2（保持的同格）；第 2 拍分開（消除的同格）；
+  //    d 第 1 拍不再越界（消除越界）；e,f 第 1 拍互换（新增互换）；c 第 1 拍越界（新增越界）
+  const sA = {
+    beats: 2,
+    actors: [
+      { id: 'a', name: '阿甲', start: { c: 2, r: 2 }, moves: { '1': 'R', '2': 'S' } },
+      { id: 'b', name: '阿乙', start: { c: 4, r: 2 }, moves: { '1': 'L', '2': 'S' } },
+      { id: 'c', name: '阿丙', start: { c: 4, r: 4 }, moves: { '1': 'S', '2': 'S' } },
+      { id: 'd', name: '阿丁', start: { c: 8, r: 6 }, moves: { '1': 'R', '2': 'S' } },
+      { id: 'e', name: '阿戊', start: { c: 1, r: 6 }, moves: { '1': 'S', '2': 'S' } },
+      { id: 'f', name: '阿己', start: { c: 2, r: 6 }, moves: { '1': 'S', '2': 'S' } }
+    ]
+  };
+  const sB = {
+    beats: 2,
+    actors: [
+      { id: 'a', name: '阿甲', start: { c: 2, r: 2 }, moves: { '1': 'R', '2': 'U' } },
+      { id: 'b', name: '阿乙', start: { c: 4, r: 2 }, moves: { '1': 'L', '2': 'D' } },
+      { id: 'c', name: '阿丙', start: { c: 4, r: 1 }, moves: { '1': 'D', '2': 'S' } },
+      { id: 'd', name: '阿丁', start: { c: 8, r: 6 }, moves: { '1': 'S', '2': 'S' } },
+      { id: 'e', name: '阿戊', start: { c: 1, r: 6 }, moves: { '1': 'R', '2': 'S' } },
+      { id: 'f', name: '阿己', start: { c: 2, r: 6 }, moves: { '1': 'L', '2': 'S' } }
+    ]
+  };
+  const rA = buildReport({ state: sA });
+  const rB = buildReport({ state: sB });
+  const cmp = buildComparison({ a: rA, b: rB });
+
+  const k = cmp.counts;
+  assert(k.added.total === 2 && k.added.swap === 1 && k.added.blocked === 1,
+    '新增：1 互换（e/f）+ 1 越界（c）');
+  assert(k.removed.total === 2 && k.removed.collision === 1 && k.removed.blocked === 1,
+    '消除：1 同格（第 2 拍 3-2）+ 1 越界（d）');
+  assert(k.kept.total === 1 && k.kept.collision === 1, '保持：1 同格（第 1 拍 3-2）');
+  assert(k.total === 5, '冲突变化总数 5');
+
+  const kept = cmp.deltas.find((d) => d.status === 'kept');
+  assert(kept.kind === 'collision' && kept.beat === 1 && kept.cellsB[0] === '3-2',
+    '保持的同格定位在第 1 拍 (3-2)');
+  const removedCol = cmp.deltas.find((d) => d.status === 'removed' && d.kind === 'collision');
+  assert(removedCol.beat === 2 && removedCol.cellsA[0] === '3-2', '消除的同格在第 2 拍 (3-2)');
+  const addedSwap = cmp.deltas.find((d) => d.status === 'added' && d.kind === 'swap');
+  assert(addedSwap.beat === 1 &&
+    addedSwap.actorIds.slice().sort().join('-') === 'e-f', '新增互换按拍次+双方归并（e、f）');
+  const addedBlk = cmp.deltas.find((d) => d.status === 'added' && d.kind === 'blocked');
+  assert(addedBlk.beat === 1 && addedBlk.actorIds[0] === 'c', '新增越界归到 c 第 1 拍');
+  const removedBlk = cmp.deltas.find((d) => d.status === 'removed' && d.kind === 'blocked');
+  assert(removedBlk.beat === 1 && removedBlk.actorIds[0] === 'd', '消除越界归到 d 第 1 拍');
+
+  // 同一拍同类型两条互不串号
+  assert(new Set(cmp.deltas.map((d) => d.key)).size === cmp.deltas.length, '每条变化有唯一规范键');
+
+  // 双方文本都保留
+  assert(kept.textA && kept.textB, '保持条目的两侧描述均保留');
+  assert(addedSwap.textA === '' && addedSwap.textB.length > 0, '新增条目仅 B 侧有描述');
+  assert(removedBlk.textA.length > 0 && removedBlk.textB === '', '消除条目仅 A 侧有描述');
+}
+
+console.log('15) buildComparison：拍次 / 演员不重叠时明确提示且不生成误导结果');
+{
+  // 拍次完全不重叠：A 覆盖 0..1，B 覆盖 2..3
+  const base = (moves1, moves3) => ({
+    actors: [{ id: 'a', name: '阿甲', start: { c: 1, r: 1 }, moves: { '1': moves1, '2': 'S', '3': moves3 } }]
+  });
+  const rA = buildReport({
+    state: { beats: 3, actors: base('S', 'S').actors }, fromBeat: 0, toBeat: 1
+  });
+  const rB = buildReport({
+    state: { beats: 3, actors: base('S', 'S').actors }, fromBeat: 2, toBeat: 3
+  });
+  const cmp = buildComparison({ a: rA, b: rB });
+  assert(cmp.comparable === false && cmp.reason === 'no-common-beats', '拍次不重叠：标记 no-common-beats');
+  assert(cmp.beats.length === 0 && cmp.deltas.length === 0 && cmp.diffRowCount === 0,
+    '不生成任何差异 / 冲突变化条目');
+  assert(cmp.commonBeats.length === 0, '共同拍次为空');
+  assert(cmp.aOnlyBeats.includes(0) && cmp.aOnlyBeats.includes(1) &&
+    cmp.bOnlyBeats.includes(2) && cmp.bOnlyBeats.includes(3), '各自独有拍次被明确列出');
+
+  // 演员完全不重叠
+  const sX = { beats: 1, actors: [{ id: 'x', name: 'X', start: { c: 1, r: 1 }, moves: { '1': 'S' } }] };
+  const sY = { beats: 1, actors: [{ id: 'y', name: 'Y', start: { c: 1, r: 1 }, moves: { '1': 'S' } }] };
+  const cmp2 = buildComparison({ a: buildReport({ state: sX }), b: buildReport({ state: sY }) });
+  assert(cmp2.comparable === false && cmp2.reason === 'no-common-actors', '演员不重叠：标记 no-common-actors');
+  assert(cmp2.beats.length === 0 && cmp2.deltas.length === 0, '同样不生成差异条目');
+  assert(cmp2.aOnlyActors[0].id === 'x' && cmp2.bOnlyActors[0].id === 'y', '独有演员被明确列出');
+
+  // 同一份报告不能与自身对比
+  let threw = false;
+  try { buildComparison({ a: rA, b: rA }); } catch (err) { threw = true; }
+  assert(threw, '同一份报告与自身对比抛错');
+  // 坏数据
+  let threw2 = false;
+  try { buildComparison({ a: null, b: rB }); } catch (err) { threw2 = true; }
+  assert(threw2, '缺少一侧报告时抛错');
+}
+
+console.log('16) buildComparison：仅一方覆盖的拍次 / 非共同演员不混入统计');
+{
+  // A 覆盖 0..2：a,b 第 1 拍保持分开、第 2 拍走到 3-2 同格；B 只覆盖 0..1 且两位共同演员均静止
+  const sA = {
+    beats: 2,
+    actors: [
+      { id: 'a', name: '阿甲', start: { c: 2, r: 2 }, moves: { '1': 'S', '2': 'R' } },
+      { id: 'b', name: '阿乙', start: { c: 4, r: 2 }, moves: { '1': 'S', '2': 'L' } }
+    ]
+  };
+  const sB = {
+    beats: 1,
+    actors: [
+      { id: 'a', name: '阿甲', start: { c: 2, r: 2 }, moves: { '1': 'S' } },
+      { id: 'b', name: '阿乙', start: { c: 4, r: 2 }, moves: { '1': 'S' } }
+    ]
+  };
+  const rA = buildReport({ state: sA, toBeat: 2 });
+  const rB = buildReport({ state: sB, toBeat: 1 });
+  const cmp = buildComparison({ a: rA, b: rB });
+  assert(cmp.overlap.fromBeat === 0 && cmp.overlap.toBeat === 1, '重叠范围只到第 1 拍');
+  assert(cmp.aOnlyBeats.join(',') === '2', '第 2 拍为 A 侧独有，仅提示');
+  assert(cmp.beats.every((bk) => bk.beat <= 1), '逐拍差异不包含第 2 拍');
+  assert(cmp.counts.kept.total === 0 && cmp.counts.added.total === 0 &&
+    cmp.counts.removed.total === 0, '共同范围内双方均无冲突');
+
+  // 独有拍次里的同格（A 第 2 拍 (3-2)）不被误报为「消除」
+  assert(!cmp.deltas.some((d) => d.kind === 'collision' && d.beat === 2),
+    '独有拍次的冲突不进入对比变化');
+
+  // 同格只涉及一方独有演员时不归并：B 加一位独有演员 z，与 B 侧的 b 同格；
+  // A 侧共同演员 a 在共同范围内无同格伙伴 → 不产生同格变化
+  const sB2 = {
+    beats: 1,
+    actors: [
+      { id: 'a', name: '阿甲', start: { c: 2, r: 2 }, moves: { '1': 'S' } },
+      { id: 'z', name: '阿Z', start: { c: 4, r: 2 }, moves: { '1': 'S' } }
+    ]
+  };
+  const rB2 = buildReport({ state: sB2 });
+  const cmp2 = buildComparison({ a: rA, b: rB2 });
+  assert(cmp2.commonActorIds.length === 1 && cmp2.bOnlyActors[0].id === 'z', 'z 为 B 侧独有演员');
+  assert(cmp2.deltas.filter((d) => d.kind === 'collision').length === 0,
+    '当事人均非共同演员的同格不进入对比');
+}
+
+console.log('17) normalizeComparison：存档规整 / 坏数据丢弃 / 快照隔离');
+{
+  const sA = {
+    beats: 1,
+    actors: [
+      { id: 'a', name: '阿甲', start: { c: 8, r: 6 }, moves: { '1': 'R' } },
+      { id: 'e', name: '阿戊', start: { c: 1, r: 6 }, moves: { '1': 'S' } },
+      { id: 'f', name: '阿己', start: { c: 2, r: 6 }, moves: { '1': 'S' } }
+    ]
+  };
+  const sB = {
+    beats: 1,
+    actors: [
+      { id: 'a', name: '阿甲', start: { c: 8, r: 6 }, moves: { '1': 'S' } },
+      { id: 'e', name: '阿戊', start: { c: 1, r: 6 }, moves: { '1': 'R' } },
+      { id: 'f', name: '阿己', start: { c: 2, r: 6 }, moves: { '1': 'L' } }
+    ]
+  };
+  const cmp = buildComparison({ a: buildReport({ state: sA }), b: buildReport({ state: sB }) });
+  const json = JSON.stringify(cmp);
+  const back = normalizeComparison(JSON.parse(json));
+  assert(back !== null, '合法对比可规整恢复');
+  assert(back.id === cmp.id && back.title === cmp.title, '保留 id / 标题');
+  assert(back.commonActorIds.length === 3, '保留 3 位共同演员');
+  assert(back.deltas.length === cmp.deltas.length, '冲突变化条目数一致');
+  assert(back.counts.added.blocked === cmp.counts.added.blocked &&
+    back.counts.removed.blocked === cmp.counts.removed.blocked &&
+    back.counts.added.swap === cmp.counts.added.swap, '规整后重新统计的计数一致');
+  assert(back.diffRowCount === cmp.diffRowCount, '差异行数重新统计一致');
+
+  // 快照隔离：生成后改报告不影响对比（对比本身已深拷贝文本）
+  const snap = JSON.stringify(cmp);
+  sA.actors[0].moves[1] = 'S';
+  assert(JSON.stringify(cmp) === snap, '原走位变化不影响已生成对比');
+
+  // 坏数据被拒
+  assert(normalizeComparison(null) === null, 'null 被拒');
+  assert(normalizeComparison({ app: 'other' }) === null, '非本应用数据被拒');
+  const bad = JSON.parse(json);
+  bad.a = null;
+  assert(normalizeComparison(bad) === null, '缺少一侧元信息被拒');
+  const bad2 = JSON.parse(json);
+  bad2.actors = [];
+  assert(normalizeComparison(bad2) === null, '无共同演员被拒');
+  const bad3 = JSON.parse(json);
+  bad3.commonBeats = [];
+  bad3.overlap = null;
+  assert(normalizeComparison(bad3) === null, '无共同拍次被拒');
+  const bad4 = JSON.parse(json);
+  bad4.a.id = bad4.b.id;
+  assert(normalizeComparison(bad4) === null, '两侧为同一报告被拒');
+
+  // 脏条目被清洗：未知演员的 delta 丢弃、超范围 beat 丢弃、计数重算
+  const dirty = JSON.parse(json);
+  const goodCount = cmp.deltas.length;
+  dirty.deltas.push({ key: 'x1', kind: 'weird', status: 'added', beat: 1, actorIds: ['a'] });
+  dirty.deltas.push({ key: 'x2', kind: 'collision', status: 'added', beat: 99, actorIds: ['a'] });
+  dirty.deltas.push({ key: 'x3', kind: 'swap', status: 'added', beat: 1, actorIds: ['ghost'] });
+  dirty.deltas.push({ key: 'x4', kind: 'blocked', status: 'weird', beat: 1, actorIds: ['a'] });
+  const cleaned = normalizeComparison(dirty);
+  assert(cleaned.deltas.length === goodCount, '非法 delta 条目被丢弃');
+  assert(cleaned.counts.total === goodCount, '计数按清洗后的条目重算');
+
+  // 脏逐拍行：未知演员被丢弃、坏坐标归零、差异重判
+  const dirty2 = JSON.parse(json);
+  dirty2.beats[0].rows.push({ actorId: 'ghost', coordA: '1-1', coordB: '2-2' });
+  dirty2.beats[0].rows[0].coordB = 'badcoord';
+  const cleaned2 = normalizeComparison(dirty2);
+  assert(!cleaned2.beats.some((bk) => bk.rows.some((r) => r.actorId === 'ghost')), '未知演员差异行被丢弃');
+  assert(cleaned2.beats[0].rows[0].coordB === null, '坏坐标归零为 null');
 }
 
 console.log('');

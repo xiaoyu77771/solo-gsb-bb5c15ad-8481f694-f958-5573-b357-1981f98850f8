@@ -819,3 +819,215 @@ td.move-cell.flash { animation: cellflash 1s ease; }
   @page { margin: 14mm; }
 }
 
+/* ============================================================
+   报告对比
+   ============================================================ */
+.compare-list { max-height: 180px; }
+.compare-row .rr-title { font-size: 0.78rem; }
+
+/* 对比选择弹窗提示 */
+.cmp-note { line-height: 1.7; }
+.cmp-note b { color: var(--text); }
+.cmp-note.warn {
+  color: #f3d9a4;
+  background: #3a2f16;
+  border: 1px solid var(--accent);
+}
+
+/* ---------- 对比查看器（深色工具条 + 纸张正文，复用 report-sheet） ---------- */
+.compare-sheet { max-width: 1060px; }
+
+.cmp-header .cmp-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+.cmp-side {
+  border: 1px solid #d2d2d2;
+  border-radius: 6px;
+  padding: 7px 11px;
+  font-size: 0.8rem;
+  background: #fafafa;
+}
+.cmp-side-a { border-left: 5px solid #2b62c8; }
+.cmp-side-b { border-left: 5px solid #2e7d43; }
+.cmp-side-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 0 6px;
+  margin-right: 7px;
+  color: #fff;
+}
+.cmp-side-a .cmp-side-tag { background: #2b62c8; }
+.cmp-side-b .cmp-side-tag { background: #2e7d43; }
+.cmp-side-title { font-weight: 600; }
+.cmp-side-missing { display: block; font-size: 0.7rem; color: #777; margin-top: 2px; }
+.cmp-side-missing.missing { color: #b02a37; }
+
+.cmp-note-box {
+  margin-top: 10px;
+  border: 1px solid #e3c574;
+  background: #fdf3d8;
+  border-radius: 6px;
+  padding: 7px 11px;
+  font-size: 0.74rem;
+  color: #7a5200;
+}
+.cmp-note-box p { margin: 2px 0; }
+
+/* 汇总卡 */
+.cmp-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 14px;
+}
+.cmp-card {
+  flex: 1 1 150px;
+  border: 1px solid #c9c9c9;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.74rem;
+  color: #555;
+}
+.cmp-card .cc-total b { font-size: 1.3rem; color: #1a1a1a; }
+.cmp-card .cc-detail { font-size: 0.72rem; color: #666; }
+.cc-added { border-left: 5px solid #2e7d43; background: #eef8f1; }
+.cc-removed { border-left: 5px solid #b02a37; background: #fdf0f1; }
+.cc-kept { border-left: 5px solid #777; background: #f4f4f4; }
+.cs-base {
+  flex-basis: 100%;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #333;
+}
+.cs-base:last-child {
+  flex-basis: auto;
+  flex: 1 1 100%;
+  font-weight: 400;
+  color: #555;
+  border-top: 1px dashed #ccc;
+  padding-top: 6px;
+}
+
+/* 逐拍差异表 */
+.cmp-beat-same { opacity: 0.72; }
+.sheet-table.cmp-table th, .sheet-table.cmp-table td { font-size: 0.74rem; padding: 4px 7px; }
+.cmp-table td.diff { background: #fff4e6; }
+.cmp-coord.diff { font-weight: 700; color: #b9651a; }
+.cmp-flag {
+  display: inline-block;
+  width: 20px;
+  text-align: center;
+  font-weight: 700;
+  border-radius: 4px;
+}
+.flag-changed { background: #fde0c2; color: #b9651a; }
+.flag-same { color: #999; }
+.cmp-rename { color: #2b62c8; font-size: 0.72rem; }
+.cmp-jump-btn {
+  appearance: none;
+  border: 1px solid #9db8e6;
+  background: #f2f6fd;
+  color: #2b62c8;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cmp-jump-btn:hover { background: #e2ecfb; }
+
+/* 冲突变化分组 */
+.cmp-group-title {
+  font-size: 0.86rem;
+  margin: 16px 0 7px;
+}
+.cgt-count { font-size: 0.74rem; color: #888; font-weight: 400; }
+.cgt-added { color: #2e7d43; }
+.cgt-removed { color: #b02a37; }
+.cgt-kept { color: #666; }
+.cmp-group-empty { font-size: 0.76rem; color: #999; margin: 0 0 6px; }
+.cmp-deltas { margin-bottom: 8px; }
+.cmp-delta .cd-status {
+  flex: none;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 1px 7px;
+}
+.cmp-delta .cd-kind {
+  flex: none;
+  font-size: 0.7rem;
+  color: #666;
+  background: #ececec;
+  border-radius: 4px;
+  padding: 1px 7px;
+}
+.cd-added .cd-status { background: #d7f0df; color: #2e7d43; }
+.cd-removed .cd-status { background: #f8d7da; color: #842029; }
+.cd-kept .cd-status { background: #e9e9e9; color: #555; }
+
+/* 无法对比的提示页 */
+.cmp-incomparable {
+  padding: 8px 4px;
+  color: #1a1a1a;
+}
+.cmp-incomparable h2 { color: #b9651a; margin: 0 0 10px; font-size: 1.15rem; }
+.cmp-inc-reason { font-size: 0.9rem; margin: 0 0 14px; }
+.cmp-inc-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-bottom: 14px; }
+.cmp-inc-table th, .cmp-inc-table td {
+  border: 1px solid #c9c9c9;
+  padding: 6px 10px;
+  text-align: left;
+}
+.cmp-inc-table th { background: #f0f0f0; width: 90px; }
+.cmp-inc-list { font-size: 0.8rem; color: #444; line-height: 1.8; padding-left: 20px; }
+.cmp-inc-foot {
+  margin-top: 14px;
+  font-size: 0.78rem;
+  color: #7a5200;
+  background: #fdf3d8;
+  border: 1px solid #e3c574;
+  border-radius: 6px;
+  padding: 8px 11px;
+}
+
+/* ---------- 对比视图打印样式 ---------- */
+@media print {
+  body.printing-compare .app-header,
+  body.printing-compare .layout,
+  body.printing-compare .table-panel,
+  body.printing-compare #toast,
+  body.printing-compare #reportModal,
+  body.printing-compare #compareModal,
+  body.printing-compare #viewerOverlay { display: none !important; }
+
+  body.printing-compare #compareViewer,
+  body.printing-compare #compareViewer.hidden {
+    display: block !important;
+    position: static;
+    overflow: visible;
+    background: #fff;
+  }
+  body.printing-compare .viewer-toolbar { display: none !important; }
+  body.printing-compare .compare-sheet {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  body.printing-compare .cmp-jump-btn,
+  body.printing-compare .cmp-delta { cursor: default; }
+  body.printing-compare .sc-jump { color: #555; }
+}
+
+

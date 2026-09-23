@@ -11,7 +11,7 @@
 <body>
   <header class="app-header">
     <h1>🎭 剧场排练走位工具</h1>
-    <p class="subtitle">8 × 6 舞台网格 · 逐拍推演 · 碰撞 / 互换冲突检测 · 排练场记报告 · 本地保存</p>
+    <p class="subtitle">8 × 6 舞台网格 · 逐拍推演 · 碰撞 / 互换冲突检测 · 排练场记报告 · 报告对比 · 本地保存</p>
   </header>
 
   <main class="layout">
@@ -77,9 +77,19 @@
       <section class="panel" aria-label="排练场记报告">
         <div class="panel-header">
           <h2>📝 场记报告</h2>
-          <button type="button" id="newReportBtn" class="btn btn-primary btn-sm">＋ 生成报告</button>
+          <div class="toolbar-group">
+            <button type="button" id="newCompareBtn" class="btn btn-sm" title="选择两份已保存报告进行对比">⚖ 报告对比</button>
+            <button type="button" id="newReportBtn" class="btn btn-primary btn-sm">＋ 生成报告</button>
+          </div>
         </div>
         <ul id="reportList" class="report-list"></ul>
+      </section>
+
+      <section class="panel" aria-label="报告对比记录">
+        <div class="panel-header">
+          <h2>⚖ 报告对比</h2>
+        </div>
+        <ul id="compareList" class="report-list compare-list"></ul>
       </section>
     </aside>
   </main>
@@ -179,6 +189,48 @@
         <div id="sheetConflicts" class="sheet-conflicts"></div>
       </section>
     </article>
+  </div>
+
+  <!-- 选择两份报告进行对比 -->
+  <div id="compareModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="报告对比">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>⚖ 报告对比</h2>
+        <button type="button" class="row-btn" id="cmpCloseX" aria-label="关闭">✕</button>
+      </div>
+      <div class="modal-body">
+        <label class="rp-field">
+          <span class="rp-label">对比名称（可选）</span>
+          <input type="text" id="cmpTitle" class="rp-input" maxlength="80" placeholder="默认使用两份报告名称">
+        </label>
+        <div class="rp-field">
+          <span class="rp-label">A 侧报告（基准）</span>
+          <select id="cmpA" class="rp-select" aria-label="A 侧报告"></select>
+        </div>
+        <div class="rp-field">
+          <span class="rp-label">B 侧报告（对比）</span>
+          <select id="cmpB" class="rp-select" aria-label="B 侧报告"></select>
+        </div>
+        <p id="cmpNote" class="rp-note cmp-note"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" id="cmpCancel">取消</button>
+        <button type="button" class="btn btn-primary" id="cmpSubmit">生成对比</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 只读报告对比视图 -->
+  <div id="compareViewer" class="viewer-overlay compare-viewer hidden" role="dialog" aria-modal="true" aria-label="报告对比（只读）">
+    <div class="viewer-toolbar no-print">
+      <span class="vt-title" id="cmpViewTitle">⚖ 报告对比（只读）</span>
+      <span class="vt-spacer"></span>
+      <button type="button" id="cmpOnlyDiffs" class="btn btn-sm" title="在逐拍表中只显示有差异的行">仅看差异</button>
+      <button type="button" id="cmpPrint" class="btn btn-sm">🖨 打印</button>
+      <button type="button" id="cmpDownload" class="btn btn-sm">⬇ 下载 JSON</button>
+      <button type="button" id="cmpClose" class="btn btn-sm btn-danger">✕ 关闭</button>
+    </div>
+    <article class="report-sheet compare-sheet" id="cmpSheet"></article>
   </div>
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
